@@ -1,0 +1,54 @@
+import { useState, useId } from 'react';
+
+export interface ThermalToggleProps {
+  label: string;
+  initialState?: boolean;
+  onChange?: (isOn: boolean) => void;
+  activeColor?: string; // Hex color value for active state (e.g. "#4F46E5")
+  inactiveColor?: string; // Hex color value for inactive state (e.g. "#E5E7EB")
+}
+
+export const ThermalToggle = ({
+  label,
+  initialState = false,
+  onChange,
+  activeColor = '#EC4899', // Default to pink-600 equivalent
+  inactiveColor = '#E5E7EB' // Default to gray-200 equivalent
+}: ThermalToggleProps) => {
+  const [isChecked, setIsChecked] = useState(initialState);
+  const id = useId();
+  const toggleId = `thermal-toggle-${id}`;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newState = e.target.checked;
+    setIsChecked(newState);
+    onChange?.(newState);
+  };
+
+  return (
+    <label htmlFor={toggleId} className="tw-flex tw-items-center tw-cursor-pointer tw-relative tw-mb-4">
+      <input
+        type="checkbox"
+        id={toggleId}
+        checked={isChecked}
+        onChange={handleChange}
+        className="tw-sr-only"
+      />
+      <div
+        className={`
+          tw-toggle-bg tw-border-2 tw-h-6 tw-w-11 tw-rounded-full
+          tw-transition-colors tw-duration-200 tw-ease-in-out tw-relative
+          before:tw-content-[''] before:tw-absolute before:tw-h-4 before:tw-w-4
+          before:tw-left-1 before:tw-bottom-1 before:tw-bg-white before:tw-rounded-full
+          before:tw-transition-transform before:tw-duration-200 before:tw-ease-in-out
+          ${isChecked ? 'before:tw-translate-x-5' : ''}
+        `}
+        style={{
+          backgroundColor: isChecked ? activeColor : inactiveColor,
+          borderColor: isChecked ? activeColor : inactiveColor
+        }}
+      ></div>
+      <span className="tw-ml-3 tw-text-gray-900 tw-text-sm tw-font-medium">{label}</span>
+    </label>
+  );
+};
