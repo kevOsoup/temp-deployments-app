@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState } from 'react';
 
 export interface ThermalToggleProps {
   label: string;
@@ -6,6 +6,7 @@ export interface ThermalToggleProps {
   onChange?: (isOn: boolean) => void;
   activeColor?: string; // Hex color value for active state (e.g. "#4F46E5")
   inactiveColor?: string; // Hex color value for inactive state (e.g. "#E5E7EB")
+  id?: string; // Optional ID for the checkbox input
 }
 
 export const ThermalToggle = ({
@@ -13,11 +14,12 @@ export const ThermalToggle = ({
   initialState = false,
   onChange,
   activeColor = '#EC4899', // Default to pink-600 equivalent
-  inactiveColor = '#E5E7EB' // Default to gray-200 equivalent
+  inactiveColor = '#E5E7EB', // Default to gray-200 equivalent
+  id
 }: ThermalToggleProps) => {
   const [isChecked, setIsChecked] = useState(initialState);
-  const id = useId();
-  const toggleId = `thermal-toggle-${id}`;
+  // Use provided ID or generate a fallback
+  const toggleId = id || `thermal-toggle-${Math.random().toString(36).substring(2, 11)}`;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newState = e.target.checked;

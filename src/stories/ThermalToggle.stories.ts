@@ -52,6 +52,14 @@ export const CustomColors: Story = {
   },
 };
 
+export const WithCustomId: Story = {
+  args: {
+    label: 'With Custom ID',
+    initialState: false,
+    id: 'my-custom-thermal-toggle'
+  },
+};
+
 export const CustomColorsActive: Story = {
   args: {
     label: 'Custom Colors (Active)',
