@@ -1,3 +1,5 @@
+/* eslint-disable react/require-default-props */
+/* eslint-disable react/react-in-jsx-scope */
 import { useState } from 'react';
 
 export interface ThermalToggleProps {
@@ -13,9 +15,9 @@ export const ThermalToggle = ({
   label,
   initialState = false,
   onChange,
-  activeColor = '#EC4899', // Default to pink-600 equivalent
-  inactiveColor = '#E5E7EB', // Default to gray-200 equivalent
-  id
+  activeColor = '#0078ff', // Default to pink-600 equivalent
+  inactiveColor = '#707070', // Default to gray-200 equivalent
+  id,
 }: ThermalToggleProps) => {
   const [isChecked, setIsChecked] = useState(initialState);
   // Use provided ID or generate a fallback
@@ -43,13 +45,14 @@ export const ThermalToggle = ({
           before:tw-content-[''] before:tw-absolute before:tw-h-4 before:tw-w-4
           before:tw-left-1 before:tw-bottom-1 before:tw-bg-white before:tw-rounded-full
           before:tw-transition-transform before:tw-duration-200 before:tw-ease-in-out
-          ${isChecked ? 'before:tw-translate-x-5' : ''}
+          before:[transform:translateX(var(--translate-x))]
         `}
         style={{
           backgroundColor: isChecked ? activeColor : inactiveColor,
-          borderColor: isChecked ? activeColor : inactiveColor
-        }}
-      ></div>
+          borderColor: isChecked ? activeColor : inactiveColor,
+          '--translate-x': isChecked ? '1.25rem' : '0rem',
+        } as React.CSSProperties & { '--translate-x': string }}
+      />
       <span className="tw-ml-3 tw-text-gray-900 tw-text-sm tw-font-medium">{label}</span>
     </label>
   );
