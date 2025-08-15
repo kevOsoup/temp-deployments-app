@@ -123,7 +123,7 @@ module.exports = {
 		namedGroups: ["primary", "secondary"],
 		extend: {
 			fontFamily: {
-				'primary': ['"itc-american-typewriter"','"american-typewriter"', 'Georgia', '"Times"', '"Times New Roman"','serif'],
+				'primary': ['Work Sans', 'sans-serif'],
 				'secondary': ["'Gothic A1'", 'Gothic A1', 'Arial', 'sans-serif'],
 				'tertiary': ["'century-gothic'", 'century-gothic', "'Gothic A1'", 'Gothic A1', 'Arial', 'sans-serif'],
 				'quaternary': ['Work Sans', "'Arial Black'", "'Impact'", 'Arial', 'sans-serif'],
