@@ -199,32 +199,32 @@ export const LPR = () => {
   };
 
   return (
-    <div className="tw-container tw-bg-[#1E1D1B] tw-mx-auto tw-p-4 tw-uppercase tw-leading-none tw-font-[400] tw-text-4xl tw-text-white tw-min-h-screen tw-font-primary">
+    <div className="tw-container tw-bg-[#1E1D1B] tw-mx-auto tw-p-2 sm:tw-p-3 md:tw-p-4 lg:tw-p-6 tw-uppercase tw-leading-none tw-font-[400] tw-text-base sm:tw-text-lg md:tw-text-xl lg:tw-text-2xl tw-text-white tw-min-h-screen tw-font-primary">
       <div className="tw-w-full tw-border tw-border-gray-700">
         {/* Header Row */}
-        <div className="tw-grid tw-grid-cols-4 tw-bg-gray-800 tw-font-bold tw-text-2xl">
-          <div className="tw-p-2">License Plate</div>
-          <div className="tw-p-2">Date Captured</div>
-          <div className="tw-p-2">Make</div>
-          <div className="tw-p-2">Model</div>
+        <div className="tw-grid tw-grid-cols-4 tw-font-light tw-text-xs sm:tw-text-sm md:tw-text-lg lg:tw-text-xl" style={{ background: "linear-gradient(302deg, rgba(33, 46, 94, 1) 0%, rgba(21, 73, 153, 1) 52%, rgba(0, 120, 255, 1) 79%, rgba(39, 59, 137, 1) 100%)" }}>
+          <div className="tw-p-1 sm:tw-p-2 md:tw-p-3">License Plate</div>
+          <div className="tw-p-1 sm:tw-p-2 md:tw-p-3">Date Captured</div>
+          <div className="tw-p-1 sm:tw-p-2 md:tw-p-3">Make</div>
+          <div className="tw-p-1 sm:tw-p-2 md:tw-p-3">Model</div>
         </div>
 
         {/* Data Rows */}
         {LPRdata.map((item, index) => (
           <div
             key={index}
-            className="tw-grid tw-grid-cols-4 hover:tw-bg-gray-700 tw-transition-colors tw-duration-150"
+            className="tw-grid tw-grid-cols-4 hover:tw-bg-zinc-800 tw-transition-colors tw-duration-150"
           >
-            <div className="tw-p-2 tw-border-t tw-border-gray-700">
+            <div className="tw-p-1 sm:tw-p-2 md:tw-p-3 tw-border-t tw-border-gray-700">
               <img
                 src={item.licensePlateImageUrl}
                 alt="License Plate"
                 className="tw-max-w-full tw-h-auto"
               />
             </div>
-            <div className="tw-p-2 tw-border-t tw-border-gray-700 tw-flex tw-items-center">{formatDate(item.dateCaptured)}</div>
-            <div className="tw-p-2 tw-border-t tw-border-gray-700 tw-flex tw-items-center">{item.make}</div>
-            <div className="tw-p-2 tw-border-t tw-border-gray-700 tw-flex tw-items-center">{item.model}</div>
+            <div className="tw-p-1 sm:tw-p-2 md:tw-p-3 tw-border-t tw-border-gray-700 tw-flex tw-items-center tw-text-sm sm:tw-text-base md:tw-text-lg lg:tw-text-xl">{formatDate(item.dateCaptured)}</div>
+            <div className="tw-p-1 sm:tw-p-2 md:tw-p-3 tw-border-t tw-border-gray-700 tw-flex tw-items-center tw-text-sm sm:tw-text-base md:tw-text-lg lg:tw-text-xl">{item.make}</div>
+            <div className="tw-p-1 sm:tw-p-2 md:tw-p-3 tw-border-t tw-border-gray-700 tw-flex tw-items-center tw-text-sm sm:tw-text-base md:tw-text-lg lg:tw-text-xl">{item.model}</div>
           </div>
         ))}
       </div>
