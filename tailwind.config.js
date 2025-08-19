@@ -215,6 +215,11 @@ module.exports = {
 				'flex-temp': '#0CA0DA',
 				'flex-power': '#DA0C52',
 				'flex-solar': '#0CDAA7',
+
+				'flex-security-light':'#0078ff',
+				'flex-security-dark':'#273b89',
+				'flex-security-black':'#1E1D1B',
+				'flex-security-black-accent':'#3E3C39',
 			},
 			screens: {
 				...extraSizes,
