@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LPR HTML Component</title>
+  <style>
+    /* Reset and base styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.5;
+    }
+
+    /* Container styles */
+    .lpr-container {
+      background-color: #1E1D1B;
+      padding: 16px;
+      text-transform: uppercase;
+      font-weight: 400;
+      font-size: 16px;
+      color: white;
+      min-height: 100vh;
+    }
+
+    /* Search bar styles */
+    .search-container {
+      margin-bottom: 16px;
+      width: 100%;
+    }
+
+    .search-relative {
+      position: relative;
+    }
+
+    .search-input {
+      appearance: none;
+      box-shadow: none;
+      padding: 8px 16px;
+      background-color: #222;
+      border: 1px solid #4B5563;
+      width: 33%;
+      border-radius: 4px;
+      font-weight: 300;
+      font-size: 12px;
+      color: white;
+      outline: none;
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9CA3AF;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+
+    .search-clear-btn:hover {
+      color: white;
+    }
+
+    .search-results {
+      margin-top: 8px;
+      color: #9CA3AF;
+      font-size: 14px;
+    }
+
+    /* Table styles */
+    .table-container {
+      width: 100%;
+      border: 1px solid #4B5563;
+      overflow-x: auto;
+    }
+
+    .table-content {
+      min-width: max-content;
+    }
+
+    .table-header {
+      display: grid;
+      grid-template-columns: minmax(80px, 1fr) minmax(100px, 1.5fr) minmax(100px, 1.5fr) minmax(80px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr);
+      background: #353535;
+      font-weight: 300;
+      font-size: 14px;
+    }
+
+    .header-cell {
+      padding: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+    }
+
+    .sort-indicator {
+      margin-left: 12px;
+      font-size: 12px;
+    }
+
+    .table-row {
+      display: grid;
+      grid-template-columns: minmax(80px, 1fr) minmax(100px, 1.5fr) minmax(100px, 1.5fr) minmax(80px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr);
+      transition: background-color 0.15s;
+    }
+
+    .table-row:hover {
+      background-color: #333;
+    }
+
+    .table-cell {
+      padding: 8px;
+      border-top: 1px solid #4B5563;
+      display: flex;
+      align-items: center;
+      font-weight: 300;
+      font-size: 12px;
+      overflow: hidden;
+      word-break: break-word;
+      white-space: normal;
+    }
+
+    .no-results {
+      padding: 16px;
+      text-align: center;
+      color: #9CA3AF;
+    }
+
+    /* Responsive adjustments */
+    @media (min-width: 640px) {
+      .lpr-container {
+        padding: 12px;
+        font-size: 18px;
+      }
+
+      .header-cell, .table-cell {
+        padding: 8px;
+        font-size: 14px;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .lpr-container {
+        padding: 16px;
+        font-size: 20px;
+      }
+
+      .search-container {
+        margin-bottom: 16px;
+      }
+
+      .header-cell, .table-cell {
+        padding: 12px;
+        font-size: 16px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .lpr-container {
+        padding: 24px;
+        font-size: 24px;
+      }
+
+      .header-cell {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="lpr-html" class="lpr-container">
+    <!-- Search Bar -->
+    <div class="search-container">
+      <div class="search-relative">
+        <input
+          type="text"
+          placeholder="Search..."
+          id="search-input"
+          class="search-input"
+        />
+        <button id="clear-search" class="search-clear-btn" style="display: none;">✕</button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+
+    <!-- Table container with overflow handling -->
+    <div class="table-container">
+      <!-- Table content -->
+      <div class="table-content">
+        <!-- Header Row -->
+        <div class="table-header">
+          <div class="header-cell" data-field="number">
+            Number <span class="sort-indicator" data-field="number"></span>
+          </div>
+          <div class="header-cell" data-field="maker">
+            Maker <span class="sort-indicator" data-field="maker"></span>
+          </div>
+          <div class="header-cell" data-field="model">
+            Model <span class="sort-indicator" data-field="model"></span>
+          </div>
+          <div class="header-cell" data-field="color">
+            Color <span class="sort-indicator" data-field="color"></span>
+          </div>
+          <div class="header-cell" data-field="subdivision">
+            State <span class="sort-indicator" data-field="subdivision"></span>
+          </div>
+          <div class="header-cell" data-field="country">
+            Country <span class="sort-indicator" data-field="country"></span>
+          </div>
+        </div>
+
+        <!-- Data Rows will be inserted here by JavaScript -->
+        <div id="table-data"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // LPR data
+    const LPRdata = [
+      {
+        "id": "VehicleTrace-20250814-082530-112-us-lane1-dir-l1",
+        "time": "2025-08-14T08:25:30.112Z",
+        "vehicle": {
+          "class": 5,
+          "color": "white",
+          "confidence": 94,
+          "counter": 1,
+          "country": "US",
+          "direction": 1,
+          "maker": "toyota",
+          "model": "camry",
+          "number": "JDK4521",
+          "subdivision": "PA"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250814-094215-305-us-lane2-dir-r1",
+        "time": "2025-08-14T09:42:15.305Z",
+        "vehicle": {
+          "class": 4,
+          "color": "black",
+          "confidence": 91,
+          "counter": 2,
+          "country": "US",
+          "direction": -1,
+          "maker": "honda",
+          "model": "civic",
+          "number": "XZY9012",
+          "subdivision": "NY"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250813-141030-287-us-lane3-dir-l2",
+        "time": "2025-08-13T14:10:30.287Z",
+        "vehicle": {
+          "class": 7,
+          "color": "blue",
+          "confidence": 97,
+          "counter": 3,
+          "country": "US",
+          "direction": 1,
+          "maker": "ford",
+          "model": "f-150",
+          "number": "BTR7755",
+          "subdivision": "MI"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250813-155545-114-us-lane1-dir-r2",
+        "time": "2025-08-13T15:55:45.114Z",
+        "vehicle": {
+          "class": 6,
+          "color": "silver",
+          "confidence": 92,
+          "counter": 4,
+          "country": "US",
+          "direction": -1,
+          "maker": "chevrolet",
+          "model": "malibu",
+          "number": "KQW8890",
+          "subdivision": "IL"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250812-071300-448-us-lane2-dir-l1",
+        "time": "2025-08-12T07:13:00.448Z",
+        "vehicle": {
+          "class": 3,
+          "color": "gray",
+          "confidence": 95,
+          "counter": 5,
+          "country": "US",
+          "direction": 1,
+          "maker": "tesla",
+          "model": "model 3",
+          "number": "EV2025",
+          "subdivision": "CA"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250812-084519-223-us-lane3-dir-r1",
+        "time": "2025-08-12T08:45:19.223Z",
+        "vehicle": {
+          "class": 7,
+          "color": "dark gray",
+          "confidence": 93,
+          "counter": 6,
+          "country": "US",
+          "direction": -1,
+          "maker": "bmw",
+          "model": "x5",
+          "number": "LHG6623",
+          "subdivision": "NJ"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250812-091250-501-us-lane1-dir-l1",
+        "time": "2025-08-12T09:12:50.501Z",
+        "vehicle": {
+          "class": 6,
+          "color": "red",
+          "confidence": 89,
+          "counter": 7,
+          "country": "US",
+          "direction": 1,
+          "maker": "nissan",
+          "model": "altima",
+          "number": "MNP3381",
+          "subdivision": "TX"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250812-112500-659-us-lane2-dir-r2",
+        "time": "2025-08-12T11:25:00.659Z",
+        "vehicle": {
+          "class": 5,
+          "color": "dark blue",
+          "confidence": 90,
+          "counter": 8,
+          "country": "US",
+          "direction": -1,
+          "maker": "kia",
+          "model": "sorento",
+          "number": "ZXP4710",
+          "subdivision": "FL"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250811-101445-278-us-lane3-dir-l1",
+        "time": "2025-08-11T10:14:45.278Z",
+        "vehicle": {
+          "class": 4,
+          "color": "green",
+          "confidence": 92,
+          "counter": 9,
+          "country": "US",
+          "direction": 1,
+          "maker": "hyundai",
+          "model": "elantra",
+          "number": "HYD2287",
+          "subdivision": "GA"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250811-113022-882-us-lane1-dir-r1",
+        "time": "2025-08-11T11:30:22.882Z",
+        "vehicle": {
+          "class": 6,
+          "color": "white",
+          "confidence": 93,
+          "counter": 10,
+          "country": "US",
+          "direction": -1,
+          "maker": "volkswagen",
+          "model": "jetta",
+          "number": "VWG5566",
+          "subdivision": "VA"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250810-074200-392-us-lane2-dir-l2",
+        "time": "2025-08-10T07:42:00.392Z",
+        "vehicle": {
+          "class": 7,
+          "color": "dark green",
+          "confidence": 94,
+          "counter": 11,
+          "country": "US",
+          "direction": 1,
+          "maker": "subaru",
+          "model": "outback",
+          "number": "SBR9231",
+          "subdivision": "CO"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250810-095510-775-us-lane1-dir-r2",
+        "time": "2025-08-10T09:55:10.775Z",
+        "vehicle": {
+          "class": 5,
+          "color": "black",
+          "confidence": 96,
+          "counter": 12,
+          "country": "US",
+          "direction": -1,
+          "maker": "mercedes-benz",
+          "model": "c-class",
+          "number": "MBZ0098",
+          "subdivision": "DC"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250809-151230-999-us-lane3-dir-l1",
+        "time": "2025-08-09T15:12:30.999Z",
+        "vehicle": {
+          "class": 6,
+          "color": "white",
+          "confidence": 91,
+          "counter": 13,
+          "country": "US",
+          "direction": 1,
+          "maker": "audi",
+          "model": "a4",
+          "number": "AUD4452",
+          "subdivision": "MA"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250809-163355-227-us-lane2-dir-r1",
+        "time": "2025-08-09T16:33:55.227Z",
+        "vehicle": {
+          "class": 7,
+          "color": "silver",
+          "confidence": 92,
+          "counter": 14,
+          "country": "US",
+          "direction": -1,
+          "maker": "mazda",
+          "model": "cx-5",
+          "number": "MAZ9834",
+          "subdivision": "NC"
+        }
+      },
+      {
+        "id": "VehicleTrace-20250809-170215-510-us-lane1-dir-l2",
+        "time": "2025-08-09T17:02:15.510Z",
+        "vehicle": {
+          "class": 5,
+          "color": "maroon",
+          "confidence": 93,
+          "counter": 15,
+          "country": "US",
+          "direction": 1,
+          "maker": "jeep",
+          "model": "wrangler",
+          "number": "JEP8821",
+          "subdivision": "AZ"
+        }
+      }
+    ];
+
+    // Variables for sorting and searching
+    let sortField = null;
+    let sortDirection = null;
+    let searchTerm = '';
+
+    // DOM elements
+    const searchInput = document.getElementById('search-input');
+    const clearSearchBtn = document.getElementById('clear-search');
+    const searchResults = document.getElementById('search-results');
+    const tableData = document.getElementById('table-data');
+    const headerCells = document.querySelectorAll('.header-cell');
+    const sortIndicators = document.querySelectorAll('.sort-indicator');
+
+    // Function to handle column header click for sorting
+    function handleSort(field) {
+      if (sortField === field) {
+        // If already sorting by this field, toggle direction or reset
+        if (sortDirection === 'asc') {
+          sortDirection = 'desc';
+        } else if (sortDirection === 'desc') {
+          sortField = null;
+          sortDirection = null;
+        } else {
+          sortDirection = 'asc';
+        }
+      } else {
+        // If sorting by a new field, set field and direction
+        sortField = field;
+        sortDirection = 'asc';
+      }
+
+      // Update sort indicators
+      updateSortIndicators();
+
+      // Refresh the table with the new sort
+      renderTable();
+    }
+
+    // Function to update sort indicators
+    function updateSortIndicators() {
+      sortIndicators.forEach(indicator => {
+        const field = indicator.getAttribute('data-field');
+        if (field === sortField) {
+          indicator.textContent = sortDirection === 'asc' ? '▲' : '▼';
+        } else {
+          indicator.textContent = '';
+        }
+      });
+    }
+
+    // Function to handle search input change
+    function handleSearchChange(e) {
+      searchTerm = e.target.value;
+
+      // Show/hide clear button
+      clearSearchBtn.style.display = searchTerm ? 'block' : 'none';
+
+      // Render the table with the new search term
+      renderTable();
+    }
+
+    // Function to clear search
+    function clearSearch() {
+      searchTerm = '';
+      searchInput.value = '';
+      clearSearchBtn.style.display = 'none';
+      renderTable();
+    }
+
+    // Function to filter and sort data
+    function getFilteredAndSortedData() {
+      // Start with all data
+      let filteredData = LPRdata;
+
+      // Apply search filter if search term exists
+      if (searchTerm.trim() !== '') {
+        const term = searchTerm.toLowerCase();
+        filteredData = filteredData.filter(item => {
+          // Search across all vehicle fields
+          return (
+            item.vehicle.number.toLowerCase().includes(term) ||
+            item.vehicle.maker.toLowerCase().includes(term) ||
+            item.vehicle.model.toLowerCase().includes(term) ||
+            item.vehicle.color.toLowerCase().includes(term) ||
+            item.vehicle.subdivision.toLowerCase().includes(term) ||
+            item.vehicle.country.toLowerCase().includes(term)
+          );
+        });
+      }
+
+      // Apply sorting if sort field exists
+      if (sortField && sortDirection) {
+        filteredData = [...filteredData].sort((a, b) => {
+          const aValue = a.vehicle[sortField]?.toString().toLowerCase() || '';
+          const bValue = b.vehicle[sortField]?.toString().toLowerCase() || '';
+
+          if (sortDirection === 'asc') {
+            return aValue.localeCompare(bValue);
+          } else {
+            return bValue.localeCompare(aValue);
+          }
+        });
+      }
+
+      return filteredData;
+    }
+
+    // Function to render the table
+    function renderTable() {
+      const filteredAndSortedData = getFilteredAndSortedData();
+
+      // Update search results message
+      if (searchTerm) {
+        if (filteredAndSortedData.length === 0) {
+          searchResults.textContent = `No results found for "${searchTerm}"`;
+        } else {
+          searchResults.textContent = `Found ${filteredAndSortedData.length} results for "${searchTerm}"`;
+        }
+      } else {
+        searchResults.textContent = '';
+      }
+
+      // Clear the table
+      tableData.innerHTML = '';
+
+      // If no data, show no results message
+      if (filteredAndSortedData.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'no-results';
+        noResults.textContent = 'No results found';
+        tableData.appendChild(noResults);
+        return;
+      }
+
+      // Render each row
+      filteredAndSortedData.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'table-row';
+
+        // Create cells for each column
+        const numberCell = document.createElement('div');
+        numberCell.className = 'table-cell';
+        numberCell.textContent = item.vehicle.number;
+
+        const makerCell = document.createElement('div');
+        makerCell.className = 'table-cell';
+        makerCell.textContent = item.vehicle.maker;
+
+        const modelCell = document.createElement('div');
+        modelCell.className = 'table-cell';
+        modelCell.textContent = item.vehicle.model;
+
+        const colorCell = document.createElement('div');
+        colorCell.className = 'table-cell';
+        colorCell.textContent = item.vehicle.color;
+
+        const subdivisionCell = document.createElement('div');
+        subdivisionCell.className = 'table-cell';
+        subdivisionCell.textContent = item.vehicle.subdivision;
+
+        const countryCell = document.createElement('div');
+        countryCell.className = 'table-cell';
+        countryCell.textContent = item.vehicle.country;
+
+        // Append cells to row
+        row.appendChild(numberCell);
+        row.appendChild(makerCell);
+        row.appendChild(modelCell);
+        row.appendChild(colorCell);
+        row.appendChild(subdivisionCell);
+        row.appendChild(countryCell);
+
+        // Append row to table
+        tableData.appendChild(row);
+      });
+    }
+
+    // Add event listeners
+    searchInput.addEventListener('input', handleSearchChange);
+    clearSearchBtn.addEventListener('click', clearSearch);
+
+    headerCells.forEach(cell => {
+      const field = cell.getAttribute('data-field');
+      cell.addEventListener('click', () => handleSort(field));
+    });
+
+    // Initial render
+    renderTable();
+  </script>
+</body>
+</html>
