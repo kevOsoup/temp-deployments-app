@@ -166,7 +166,14 @@ module.exports = {
 				'quaternary-normal': 300,
 				'quaternary-bold': 700,
 				'quaternary-black': 900,
-				'inherit': 'inherit'
+				'inherit': 'inherit',
+				'flex-thin': 200,
+				'flex-lite': 200,
+				'flex-light': 200,
+				'flex-normal': 300,
+				'flex-bold': 500,
+				'flex-ultra': 700,
+				'flex-black': 900
 			},
 			minWidth: {
 				...extraSizes

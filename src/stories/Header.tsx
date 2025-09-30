@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from './Button';
+import { TestButton } from './TestButton';
 
 type User = {
   name: string;
@@ -40,12 +40,12 @@ export const Header = ({ user, onLogin, onLogout, onCreateAccount }: HeaderProps
             <span className="tw-text-gray-700">
               Welcome, <b>{user.name}</b>!
             </span>
-            <Button size="small" onClick={onLogout} label="Log out" />
+            <TestButton size="small" onClick={onLogout} label="Log out" />
           </>
         ) : (
           <>
-            <Button size="small" onClick={onLogin} label="Log in" />
-            <Button primary size="small" onClick={onCreateAccount} label="Sign up" />
+            <TestButton size="small" onClick={onLogin} label="Log in" />
+            <TestButton primary size="small" onClick={onCreateAccount} label="Sign up" />
           </>
         )}
       </div>
