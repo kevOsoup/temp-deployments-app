@@ -2,11 +2,11 @@ import React from 'react';
 import { Button } from './Button';
 import { Step } from './Step';
 
-export interface FlexTechServiceProps {
+export interface StepAndButtonsProps {
   title?: string;
 }
 
-export const FlexTechService: React.FC<FlexTechServiceProps> = () => {
+export const StepAndButtons: React.FC<StepAndButtonsProps> = () => {
   return (
     <div className="tw-bg-flex-security-black tw-w-full tw-h-screen tw-flex tw-items-center tw-justify-center tw-flex-col tw-gap-20px">
       <div className='tw-flex tw-items-center tw-justify-center'>

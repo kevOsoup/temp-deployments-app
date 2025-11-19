@@ -1,18 +1,18 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { FlexTechService } from './FlexTechService';
+import { StepAndButtons } from './StepAndButtons';
 
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories#default-export
 const meta = {
-  title: 'Flex Security/Flex Tech Service',
-  component: FlexTechService,
+  title: 'UI/StepAndButtons',
+  component: StepAndButtons,
   parameters: {
     // This component needs more space than the default centered layout
     layout: 'fullscreen',
   },
   // This component will have an automatically generated Autodocs entry: https://storybook.js.org/docs/writing-docs/autodocs
   tags: ['autodocs'],
-} satisfies Meta<typeof FlexTechService>;
+} satisfies Meta<typeof StepAndButtons>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

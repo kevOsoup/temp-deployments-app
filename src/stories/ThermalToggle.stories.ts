@@ -8,7 +8,7 @@ import { ThermalToggle } from './ThermalToggle';
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories#default-export
 const meta = {
   // TODO: Update the title with your component name
-  title: 'Example/ThermalToggle',
+  title: 'UI/ThermalToggle',
   // TODO: Replace ThermalToggle with your actual component
   component: ThermalToggle,
   parameters: {

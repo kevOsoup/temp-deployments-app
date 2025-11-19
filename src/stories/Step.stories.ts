@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { Step } from './Step';
 
 const meta = {
-  title: 'Components/Step',
+  title: 'UI/Step',
   component: Step,
   parameters: {
     layout: 'centered',

@@ -15,6 +15,7 @@ export interface WizardSlideConfig {
   text: string;
   answers: WizardAnswer[];
   media?: MediaItem[];
+  description?: string;
 }
 
 export interface WizardProps {
@@ -54,25 +55,25 @@ export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
   const handleAnswer = (nextSlide: number) => {
     setDirection('forward');
     setIsAnimating(true);
+    setHistory([...history, nextSlide]);
+    setCurrentSlide(nextSlide);
     setTimeout(() => {
-      setHistory([...history, nextSlide]);
-      setCurrentSlide(nextSlide);
       setIsAnimating(false);
-    }, 300);
+    }, 50);
   };
 
   const handleBack = () => {
     if (history.length > 1) {
       setDirection('backward');
       setIsAnimating(true);
+      const newHistory = [...history];
+      newHistory.pop();
+      const previousSlide = newHistory[newHistory.length - 1];
+      setHistory(newHistory);
+      setCurrentSlide(previousSlide);
       setTimeout(() => {
-        const newHistory = [...history];
-        newHistory.pop();
-        const previousSlide = newHistory[newHistory.length - 1];
-        setHistory(newHistory);
-        setCurrentSlide(previousSlide);
         setIsAnimating(false);
-      }, 300);
+      }, 50);
     }
   };
 
@@ -85,8 +86,9 @@ export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
   const canGoBack = history.length > 1;
 
   return (
-    <div className="tw-bg-flex-security-black tw-w-full tw-h-screen tw-flex tw-items-center tw-justify-center tw-flex-col tw-gap-20px tw-overflow-hidden">
+    <div className="tw-bg-flex-security-black tw-w-full tw-min-h-screen tw-flex tw-items-center tw-justify-center tw-flex-col tw-gap-20px tw-overflow-y-auto tw-py-8">
       <div
+        key={`step-${currentSlide}`}
         className={`tw-flex tw-items-center tw-justify-center tw-transition-all tw-duration-300 ${
           isAnimating
             ? direction === 'forward'
@@ -98,6 +100,19 @@ export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
         <Step text={slide.text} />
       </div>
       <div
+        key={`desc-${currentSlide}`}
+        className={`tw-font-primary tw-text-white tw-font-thin tw-transition-all tw-duration-300 ${
+          isAnimating
+            ? direction === 'forward'
+              ? 'tw-translate-x-[-100%] tw-opacity-0'
+              : 'tw-translate-x-[100%] tw-opacity-0'
+            : 'tw-translate-x-0 tw-opacity-100'
+        } ${!slide.description ? 'tw-h-0 tw-overflow-hidden' : ''}`}
+      >
+        {slide.description}
+      </div>
+      <div
+        key={`answers-${currentSlide}`}
         className={`tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-transition-all tw-duration-300 ${
           isAnimating
             ? direction === 'forward'
@@ -115,44 +130,43 @@ export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
           />
         ))}
       </div>
-      {slide.media && slide.media.length > 0 && (
-        <div
-          className={`tw-flex tw-flex-col tw-items-center tw-justify-center tw-gap-4 tw-transition-all tw-duration-300 ${
-            isAnimating
-              ? direction === 'forward'
-                ? 'tw-translate-x-[-100%] tw-opacity-0'
-                : 'tw-translate-x-[100%] tw-opacity-0'
-              : 'tw-translate-x-0 tw-opacity-100'
-          }`}
-        >
-          {slide.media.map((mediaItem, index) => {
-            if ('image' in mediaItem) {
-              return (
-                <img
-                  key={index}
-                  src={mediaItem.image}
-                  alt=""
-                  className="tw-max-w-full tw-max-h-[300px] tw-object-contain"
-                />
-              );
-            }
-            if ('youtube' in mediaItem) {
-              const embedUrl = convertYouTubeUrl(mediaItem.youtube);
-              return (
-                <iframe
-                  key={index}
-                  src={embedUrl}
-                  title={`YouTube video ${index + 1}`}
-                  className="tw-w-full tw-max-w-[560px] tw-aspect-video"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              );
-            }
-            return null;
-          })}
-        </div>
-      )}
+      <div
+        key={`media-${currentSlide}`}
+        className={`tw-flex tw-flex-col tw-items-center tw-justify-center tw-gap-4 tw-transition-all tw-duration-300 ${
+          isAnimating
+            ? direction === 'forward'
+              ? 'tw-translate-x-[-100%] tw-opacity-0'
+              : 'tw-translate-x-[100%] tw-opacity-0'
+            : 'tw-translate-x-0 tw-opacity-100'
+        } ${!slide.media || slide.media.length === 0 ? 'tw-h-0 tw-overflow-hidden' : ''}`}
+      >
+        {slide.media && slide.media.map((mediaItem, index) => {
+          if ('image' in mediaItem) {
+            return (
+              <img
+                key={index}
+                src={mediaItem.image}
+                alt=""
+                className="tw-max-w-full tw-max-h-[300px] tw-object-contain"
+              />
+            );
+          }
+          if ('youtube' in mediaItem) {
+            const embedUrl = convertYouTubeUrl(mediaItem.youtube);
+            return (
+              <iframe
+                key={index}
+                src={embedUrl}
+                title={`YouTube video ${index + 1}`}
+                className="tw-w-full tw-max-w-[560px] tw-aspect-video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            );
+          }
+          return null;
+        })}
+      </div>
       {canGoBack && (
         <div className="tw-flex tw-justify-center">
           <Button label="Back" onClick={handleBack} />
