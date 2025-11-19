@@ -86,7 +86,7 @@ export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
   const canGoBack = history.length > 1;
 
   return (
-    <div className="tw-bg-flex-security-black tw-w-full tw-min-h-screen tw-flex tw-items-center tw-justify-center tw-flex-col tw-gap-20px tw-overflow-y-auto tw-py-8">
+    <div className="tw-bg-flex-security-black tw-w-full tw-min-h-screen tw-flex tw-justify-start tw-flex-col tw-gap-20px tw-overflow-y-auto tw-py-8">
       <div
         key={`step-${currentSlide}`}
         className={`tw-flex tw-items-center tw-justify-center tw-transition-all tw-duration-300 ${
@@ -101,7 +101,7 @@ export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
       </div>
       <div
         key={`desc-${currentSlide}`}
-        className={`tw-font-primary tw-text-white tw-font-thin tw-transition-all tw-duration-300 ${
+        className={`tw-font-primary tw-text-white tw-font-thin tw-text-center tw-transition-all tw-duration-300 ${
           isAnimating
             ? direction === 'forward'
               ? 'tw-translate-x-[-100%] tw-opacity-0'

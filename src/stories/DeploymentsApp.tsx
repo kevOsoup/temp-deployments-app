@@ -89,7 +89,7 @@ export const DeploymentsApp = () => {
     },
     {
       text: 'Attach camera housing atop the mast',
-      description: 'Camera housing can face in any directions. Make sure to tighten the clamp around the base. Plug the coord from the mast into the camera connection port.',
+      description: 'Camera housing can face in any directions. Make sure to tighten the clamp around the base. Plug the cord from the mast into the camera connection port.',
       answers: [
         { label: 'Continue', nextSlide: 10 },
       ],
@@ -98,7 +98,7 @@ export const DeploymentsApp = () => {
       ],
     },
     {
-      text: 'Plug the coord from the mast into the camera connection port',
+      text: 'Plug the cord from the mast into the camera connection port',
       answers: [
         { label: 'Continue', nextSlide: 11 },
       ],
@@ -230,7 +230,7 @@ export const DeploymentsApp = () => {
   ];
 
   return (
-    <div className="deployments-app">
+    <div className="deployments-app tw-px-4 md:tw-px-8 tw-bg-[#1e1d1b]">
       <Wizard slides={deploymentSlides} />
     </div>
   );
