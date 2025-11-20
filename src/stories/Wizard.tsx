@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from './Button';
 import { Step } from './Step';
 
@@ -46,7 +46,7 @@ const convertYouTubeUrl = (url: string): string => {
   return url;
 };
 
-export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
+export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
   const [currentSlide, setCurrentSlide] = useState(initialSlide);
   const [history, setHistory] = useState<number[]>([initialSlide]);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
@@ -86,7 +86,7 @@ export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
   const canGoBack = history.length > 1;
 
   return (
-    <div className="tw-bg-flex-security-black tw-w-full tw-min-h-screen tw-flex tw-justify-start tw-flex-col tw-gap-20px tw-overflow-y-auto tw-py-8">
+    <div className="tw-bg-flex-security-black tw-w-full tw-flex tw-justify-start tw-flex-col tw-gap-20px tw-overflow-y-auto ">
       <div
         key={`step-${currentSlide}`}
         className={`tw-flex tw-items-center tw-justify-center tw-transition-all tw-duration-300 ${
@@ -132,7 +132,7 @@ export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
       </div>
       <div
         key={`media-${currentSlide}`}
-        className={`tw-flex tw-flex-col tw-items-center tw-justify-center tw-gap-4 tw-transition-all tw-duration-300 ${
+        className={`tw-flex tw-flex-col tw-items-center tw-justify-center tw-gap-4 tw-px-4 tw-transition-all tw-duration-300 ${
           isAnimating
             ? direction === 'forward'
               ? 'tw-translate-x-[-100%] tw-opacity-0'
@@ -158,7 +158,7 @@ export const Wizard: React.FC<WizardProps> = ({ slides, initialSlide = 0 }) => {
                 key={index}
                 src={embedUrl}
                 title={`YouTube video ${index + 1}`}
-                className="tw-w-full tw-max-w-[560px] tw-aspect-video"
+                className="tw-w-full tw-max-w-[560px] tw-aspect-video tw-border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />

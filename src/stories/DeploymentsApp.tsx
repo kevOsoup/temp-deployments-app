@@ -230,8 +230,11 @@ export const DeploymentsApp = () => {
   ];
 
   return (
-    <div className="deployments-app tw-px-4 md:tw-px-8 tw-bg-[#1e1d1b]">
-      <Wizard slides={deploymentSlides} />
+    <div className='tw-min-h-screen tw-bg-[#1e1d1b]'>
+      <div className="deployments-app  tw-p-4 md:tw-p-8 ">
+        <Wizard slides={deploymentSlides} />
+      </div>
     </div>
+
   );
 };
