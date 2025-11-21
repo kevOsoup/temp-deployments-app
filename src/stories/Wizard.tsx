@@ -99,40 +99,37 @@ export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
   const canGoBack = history.length > 1;
 
   return (
-    <div className="tw-bg-flex-security-black tw-w-full tw-flex tw-justify-start tw-flex-col tw-gap-20px tw-overflow-y-auto ">
+    <div className="tw-bg-flex-security-black tw-w-full tw-flex tw-justify-start tw-flex-col tw-gap-20px tw-overflow-y-auto tw-overflow-x-hidden">
       <div
         key={`step-${currentSlide}`}
-        className={`tw-flex tw-items-center tw-justify-center tw-transition-all tw-duration-300 ${
-          isAnimating
+        className={`tw-flex tw-items-center tw-justify-center tw-transition-all tw-duration-300 ${isAnimating
             ? direction === 'forward'
               ? 'tw-translate-x-[-100%] tw-opacity-0'
               : 'tw-translate-x-[100%] tw-opacity-0'
             : 'tw-translate-x-0 tw-opacity-100'
-        }`}
+          }`}
       >
         <Step text={slide.text} />
       </div>
       <div
         key={`desc-${currentSlide}`}
-        className={`tw-font-primary tw-text-white tw-font-thin tw-text-center tw-transition-all tw-duration-300 ${
-          isAnimating
+        className={`tw-font-primary tw-text-white tw-font-thin tw-text-center tw-transition-all tw-duration-300 ${isAnimating
             ? direction === 'forward'
               ? 'tw-translate-x-[-100%] tw-opacity-0'
               : 'tw-translate-x-[100%] tw-opacity-0'
             : 'tw-translate-x-0 tw-opacity-100'
-        } ${!slide.description ? 'tw-h-0 tw-overflow-hidden' : ''}`}
+          } ${!slide.description ? 'tw-h-0 tw-overflow-hidden' : ''}`}
       >
         {slide.description}
       </div>
       <div
         key={`answers-${currentSlide}`}
-        className={`tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-transition-all tw-duration-300 ${
-          isAnimating
+        className={`tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-transition-all tw-duration-300 ${isAnimating
             ? direction === 'forward'
               ? 'tw-translate-x-[-100%] tw-opacity-0'
               : 'tw-translate-x-[100%] tw-opacity-0'
             : 'tw-translate-x-0 tw-opacity-100'
-        }`}
+          }`}
       >
         {slide.answers.map((answer, index) => (
           <Button
@@ -145,13 +142,12 @@ export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
       </div>
       <div
         key={`media-${currentSlide}`}
-        className={`tw-flex tw-flex-col tw-items-center tw-justify-center tw-gap-4 tw-px-4 tw-transition-all tw-duration-300 ${
-          isAnimating
+        className={`tw-flex tw-flex-col tw-items-center tw-justify-center tw-gap-4 tw-px-4 tw-transition-all tw-duration-300 ${isAnimating
             ? direction === 'forward'
               ? 'tw-translate-x-[-100%] tw-opacity-0'
               : 'tw-translate-x-[100%] tw-opacity-0'
             : 'tw-translate-x-0 tw-opacity-100'
-        } ${!slide.media || slide.media.length === 0 ? 'tw-h-0 tw-overflow-hidden' : ''}`}
+          } ${!slide.media || slide.media.length === 0 ? 'tw-h-0 tw-overflow-hidden' : ''}`}
       >
         {slide.media && slide.media.map((mediaItem, index) => {
           if ('image' in mediaItem) {
