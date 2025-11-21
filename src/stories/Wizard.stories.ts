@@ -29,6 +29,7 @@ export const DeploymentWizard: Story = {
           { image: 'https://placehold.co/600x400/EEE/31343C' },
           { youtube: 'https://youtu.be/s8mebfGn3I0?si=3UvmJAYgxmMqgpX3&t=7'},
           { youtube: 'https://youtu.be/s8mebfGn3I0?si=3UvmJAYgxmMqgpX3&t=7'},
+          { googleDrive: 'https://drive.google.com/file/d/1QdCcA54bB4700cJ0hZ-mTCSDslfp2YFI/view?usp=drive_link' },
         ],
       },
       {

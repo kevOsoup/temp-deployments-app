@@ -9,7 +9,8 @@ export interface WizardAnswer {
 
 export type MediaItem =
   | { image: string }
-  | { youtube: string };
+  | { youtube: string }
+  | { googleDrive: string };
 
 export interface WizardSlideConfig {
   text: string;
@@ -43,6 +44,18 @@ const convertYouTubeUrl = (url: string): string => {
   }
 
   // Return as-is if already an embed URL or unrecognized format
+  return url;
+};
+
+const convertGoogleDriveUrl = (url: string): string => {
+  // Handle drive.google.com/file/d/{fileId}/view format
+  const match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if (match) {
+    const fileId = match[1];
+    return `https://drive.google.com/file/d/${fileId}/preview`;
+  }
+
+  // Return as-is if already a preview URL or unrecognized format
   return url;
 };
 
@@ -158,6 +171,19 @@ export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
                 key={index}
                 src={embedUrl}
                 title={`YouTube video ${index + 1}`}
+                className="tw-w-full tw-max-w-[560px] tw-aspect-video tw-border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            );
+          }
+          if ('googleDrive' in mediaItem) {
+            const embedUrl = convertGoogleDriveUrl(mediaItem.googleDrive);
+            return (
+              <iframe
+                key={index}
+                src={embedUrl}
+                title={`Google Drive video ${index + 1}`}
                 className="tw-w-full tw-max-w-[560px] tw-aspect-video tw-border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
