@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Button } from './Button';
 import { Step } from './Step';
+import { saveProgress } from './unitStateManager';
 
 export interface WizardAnswer {
   label: string;
@@ -17,11 +18,22 @@ export interface WizardSlideConfig {
   answers: WizardAnswer[];
   media?: MediaItem[];
   description?: string;
+  customContent?: ReactNode;
+  skipButton?: {
+    label: string;
+    show: boolean;
+    target: string;
+  };
 }
 
 export interface WizardProps {
   slides: WizardSlideConfig[];
   initialSlide?: number;
+  onFinish?: () => void;
+  onSkip?: (target: string) => void;
+  vin?: string;
+  flowType?: 'fast_track' | 'detailed_track';
+  onSlideChange?: (index: number, totalSlides: number) => void;
 }
 
 const convertYouTubeUrl = (url: string): string => {
@@ -49,9 +61,16 @@ const convertYouTubeUrl = (url: string): string => {
 
 const convertGoogleDriveUrl = (url: string): string => {
   // Handle drive.google.com/file/d/{fileId}/view format
-  const match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-  if (match) {
-    const fileId = match[1];
+  const fileMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if (fileMatch) {
+    const fileId = fileMatch[1];
+    return `https://drive.google.com/file/d/${fileId}/preview`;
+  }
+
+  // Handle drive.google.com/uc?export=download&id={fileId} format
+  const downloadMatch = url.match(/drive\.google\.com\/uc\?export=download&id=([^&]+)/);
+  if (downloadMatch) {
+    const fileId = downloadMatch[1];
     return `https://drive.google.com/file/d/${fileId}/preview`;
   }
 
@@ -59,13 +78,30 @@ const convertGoogleDriveUrl = (url: string): string => {
   return url;
 };
 
-export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
+export const Wizard = ({ slides, initialSlide = 0, onFinish, onSkip, vin, flowType = 'detailed_track', onSlideChange }: WizardProps) => {
   const [currentSlide, setCurrentSlide] = useState(initialSlide);
   const [history, setHistory] = useState<number[]>([initialSlide]);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Save progress whenever currentSlide changes
+  useEffect(() => {
+    if (vin) {
+      const totalForStorage = flowType === 'detailed_track' ? Math.max(slides.length - 1, 1) : slides.length;
+      saveProgress(vin, currentSlide, totalForStorage, flowType);
+    }
+    if (onSlideChange) {
+      onSlideChange(currentSlide, slides.length);
+    }
+  }, [currentSlide, vin, slides.length, flowType, onSlideChange]);
+
   const handleAnswer = (nextSlide: number) => {
+    if (nextSlide === -1) {
+      if (onFinish) {
+        onFinish();
+      }
+      return;
+    }
     setDirection('forward');
     setIsAnimating(true);
     setHistory([...history, nextSlide]);
@@ -99,14 +135,14 @@ export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
   const canGoBack = history.length > 1;
 
   return (
-    <div className="tw-bg-flex-security-black tw-w-full tw-flex tw-justify-start tw-flex-col tw-gap-20px tw-overflow-y-auto tw-overflow-x-hidden">
+    <div className="tw-bg-flex-security-black tw-w-full tw-flex tw-justify-start tw-flex-col tw-gap-20px tw-overflow-y-auto tw-overflow-x-hidden tw-font-primary tw-text-white">
       <div
         key={`step-${currentSlide}`}
         className={`tw-flex tw-items-center tw-justify-center tw-transition-all tw-duration-300 ${isAnimating
-            ? direction === 'forward'
-              ? 'tw-translate-x-[-100%] tw-opacity-0'
-              : 'tw-translate-x-[100%] tw-opacity-0'
-            : 'tw-translate-x-0 tw-opacity-100'
+          ? direction === 'forward'
+            ? 'tw-translate-x-[-100%] tw-opacity-0'
+            : 'tw-translate-x-[100%] tw-opacity-0'
+          : 'tw-translate-x-0 tw-opacity-100'
           }`}
       >
         <Step text={slide.text} />
@@ -114,10 +150,10 @@ export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
       <div
         key={`desc-${currentSlide}`}
         className={`tw-font-primary tw-text-white tw-font-thin tw-text-center tw-transition-all tw-duration-300 ${isAnimating
-            ? direction === 'forward'
-              ? 'tw-translate-x-[-100%] tw-opacity-0'
-              : 'tw-translate-x-[100%] tw-opacity-0'
-            : 'tw-translate-x-0 tw-opacity-100'
+          ? direction === 'forward'
+            ? 'tw-translate-x-[-100%] tw-opacity-0'
+            : 'tw-translate-x-[100%] tw-opacity-0'
+          : 'tw-translate-x-0 tw-opacity-100'
           } ${!slide.description ? 'tw-h-0 tw-overflow-hidden' : ''}`}
       >
         {slide.description}
@@ -125,10 +161,10 @@ export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
       <div
         key={`answers-${currentSlide}`}
         className={`tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-transition-all tw-duration-300 ${isAnimating
-            ? direction === 'forward'
-              ? 'tw-translate-x-[-100%] tw-opacity-0'
-              : 'tw-translate-x-[100%] tw-opacity-0'
-            : 'tw-translate-x-0 tw-opacity-100'
+          ? direction === 'forward'
+            ? 'tw-translate-x-[-100%] tw-opacity-0'
+            : 'tw-translate-x-[100%] tw-opacity-0'
+          : 'tw-translate-x-0 tw-opacity-100'
           }`}
       >
         {slide.answers.map((answer, index) => (
@@ -139,14 +175,21 @@ export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
             onClick={() => handleAnswer(answer.nextSlide)}
           />
         ))}
+        {slide.skipButton?.show && onSkip && slide.skipButton.target && (
+          <Button
+            label={slide.skipButton.label}
+            minWidth
+            onClick={() => onSkip(slide.skipButton!.target)}
+          />
+        )}
       </div>
       <div
         key={`media-${currentSlide}`}
         className={`tw-flex tw-flex-col tw-items-center tw-justify-center tw-gap-4 tw-px-4 tw-transition-all tw-duration-300 ${isAnimating
-            ? direction === 'forward'
-              ? 'tw-translate-x-[-100%] tw-opacity-0'
-              : 'tw-translate-x-[100%] tw-opacity-0'
-            : 'tw-translate-x-0 tw-opacity-100'
+          ? direction === 'forward'
+            ? 'tw-translate-x-[-100%] tw-opacity-0'
+            : 'tw-translate-x-[100%] tw-opacity-0'
+          : 'tw-translate-x-0 tw-opacity-100'
           } ${!slide.media || slide.media.length === 0 ? 'tw-h-0 tw-overflow-hidden' : ''}`}
       >
         {slide.media && slide.media.map((mediaItem, index) => {
@@ -175,9 +218,10 @@ export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
           }
           if ('googleDrive' in mediaItem) {
             const embedUrl = convertGoogleDriveUrl(mediaItem.googleDrive);
+            console.log('Google Drive embed URL:', embedUrl);
             return (
               <iframe
-                key={index}
+                key={`${currentSlide}-${index}-${embedUrl}`}
                 src={embedUrl}
                 title={`Google Drive video ${index + 1}`}
                 className="tw-w-full tw-max-w-[560px] tw-aspect-video tw-border-0"
@@ -188,6 +232,17 @@ export const Wizard = ({ slides, initialSlide = 0 }: WizardProps) => {
           }
           return null;
         })}
+      </div>
+      <div
+        key={`custom-${currentSlide}`}
+        className={`tw-flex tw-flex-col tw-items-center tw-justify-center tw-w-full tw-transition-all tw-duration-300 ${isAnimating
+          ? direction === 'forward'
+            ? 'tw-translate-x-[-100%] tw-opacity-0'
+            : 'tw-translate-x-[100%] tw-opacity-0'
+          : 'tw-translate-x-0 tw-opacity-100'
+          } ${!slide.customContent ? 'tw-h-0 tw-overflow-hidden' : ''}`}
+      >
+        {slide.customContent}
       </div>
       {canGoBack && (
         <div className="tw-flex tw-justify-center">

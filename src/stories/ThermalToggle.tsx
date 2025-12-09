@@ -1,6 +1,4 @@
-/* eslint-disable react/require-default-props */
-/* eslint-disable react/react-in-jsx-scope */
-import { useState } from 'react';
+import { useState, type ChangeEvent, type CSSProperties } from 'react';
 
 export interface ThermalToggleProps {
   label: string;
@@ -23,7 +21,7 @@ export const ThermalToggle = ({
   // Use provided ID or generate a fallback
   const toggleId = id || `thermal-toggle-${Math.random().toString(36).substring(2, 11)}`;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const newState = e.target.checked;
     setIsChecked(newState);
     onChange?.(newState);
@@ -51,7 +49,7 @@ export const ThermalToggle = ({
           backgroundColor: isChecked ? activeColor : inactiveColor,
           borderColor: isChecked ? activeColor : inactiveColor,
           '--translate-x': isChecked ? '1.25rem' : '0rem',
-        } as React.CSSProperties & { '--translate-x': string }}
+        } as CSSProperties & { '--translate-x': string }}
       />
       <span className="tw-ml-3 tw-text-gray-900 tw-text-sm tw-font-medium">{label}</span>
     </label>
