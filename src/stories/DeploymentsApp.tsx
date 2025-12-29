@@ -9,11 +9,27 @@ import { getFastTrackPreference, getCompletionPercentage, saveProgress, getProgr
 import { ProgressIndicator } from './ProgressIndicator';
 
 
+// Battery SOC voltage-to-percentage mapping
+const SOC_OPTIONS = [
+  { id: '13_5_plus', label: '13.5V or higher (after holding for 3+ minutes)', recommendedSoc: 100, note: 'Full SOC reset after balancing' },
+  { id: '13_4', label: '13.4V', recommendedSoc: 95, note: undefined },
+  { id: '13_2', label: '13.2V', recommendedSoc: 85, note: undefined },
+  { id: '13_0', label: '13.0V', recommendedSoc: 70, note: undefined },
+  { id: '12_8', label: '12.8V', recommendedSoc: 50, note: undefined },
+  { id: '12_6', label: '12.6V', recommendedSoc: 30, note: undefined },
+  { id: '12_5_or_lower', label: '12.5V or lower', recommendedSoc: 20, note: undefined },
+] as const;
+
+// Low battery threshold - alert RVMP if below this percentage
+const LOW_BATTERY_ALERT_THRESHOLD = 50; // 50% SOC or lower
+
 export const DeploymentsApp = ({ initialSlide = 0, onFinish, vin = '', unitType = 'alpha', onSkip, disableFastTrackShortcuts = false }: { initialSlide?: number; onFinish?: () => void; vin?: string; unitType?: UnitType; onSkip?: (target: string) => void; disableFastTrackShortcuts?: boolean }) => {
   const [showCompletion, setShowCompletion] = React.useState(false);
   const [progressPercent, setProgressPercent] = React.useState(() => vin ? getCompletionPercentage(vin) : 0);
   const [deploymentImage, setDeploymentImage] = React.useState<string | null>(null);
   const [imageFileName, setImageFileName] = React.useState<string>('');
+  const [selectedSocOptionId, setSelectedSocOptionId] = React.useState<string | null>(null);
+  const [socUpdated, setSocUpdated] = React.useState(false);
 
   // Mock device status for Detailed Track (assuming all green for now or could be passed in)
   const deviceStatus = {
@@ -25,6 +41,18 @@ export const DeploymentsApp = ({ initialSlide = 0, onFinish, vin = '', unitType 
     camera: true,
   };
 
+  const sendLowBatteryAlert = (voltage: string, socPercentage: number) => {
+    // Alert RVMP when battery SOC is below threshold
+    const now = new Date();
+    console.log('⚠️ LOW BATTERY ALERT ⚠️');
+    console.log('VIN:', vin);
+    console.log('Battery Voltage:', voltage);
+    console.log('SOC Percentage:', socPercentage + '%');
+    console.log('Timestamp:', now.toISOString());
+    console.log('Risk: Unit may have been turned off - potential liability/malfunction');
+    // TODO: Implement actual API call to alert RVMP
+  };
+
   const handleRaiseMastFinish = () => {
     // Send GPS and Timestamp (mock)
     const now = new Date();
@@ -32,6 +60,7 @@ export const DeploymentsApp = ({ initialSlide = 0, onFinish, vin = '', unitType 
     console.log('Sending timestamp (UTC):', now.toISOString());
     console.log('Sending timestamp (Local):', now.toLocaleString());
     console.log('Saving deployment for VIN:', vin);
+    console.log('Triggering Victron/VRM automatic turn-on for VIN:', vin);
     alert('Deployment Submitted!');
     // Save completion progress to allow resume showing 100%
     if (vin) {
@@ -415,18 +444,107 @@ export const DeploymentsApp = ({ initialSlide = 0, onFinish, vin = '', unitType 
       text: 'Raise the camera housing mast to its maximum elevation.',
       description: 'Use a hand crank or a drill (not an impact drill) rotating clockwise.',
       answers: [
-        { label: 'Continue', nextSlide: 34 }, // Go to Device Status Check
+        { label: 'Continue', nextSlide: 35 }, // Go to Battery SOC Check
       ],
       media: [
         { googleDrive: 'https://drive.google.com/file/d/15wJe3qy8-KGzaJIizvBlQ6afC8t5vr5V/view' },
       ],
+    },
+    // Battery State of Charge Check
+    {
+      text: 'Battery State of Charge Reset (Mandatory)',
+      description: 'Update the SOC to match measured battery voltage. Incorrect SOC causes controllers to shut down early, AGS to overrun, rapid LP loss, and units going offline overnight.',
+      answers: [
+        {
+          label: 'Continue to Device Status',
+          nextSlide: 36,
+          disabled: () => !selectedSocOptionId || !socUpdated
+        }
+      ],
+      customContent: (
+        <div className="tw-flex tw-flex-col tw-items-center tw-gap-6 tw-w-full tw-mt-4">
+          <p className="tw-text-green-300 tw-text-center tw-text-sm tw-max-w-2xl">
+            If SOC already reads 90–100% and voltage is 13.4V+ (held for 3+ minutes), it is acceptable to proceed.
+          </p>
+
+          <div className="tw-w-full tw-max-w-3xl tw-bg-white/5 tw-border tw-border-white/10 tw-rounded-2xl tw-p-6 tw-shadow-xl tw-backdrop-blur-md tw-space-y-4">
+            <div className="tw-flex tw-flex-col md:tw-flex-row tw-gap-3 tw-items-start md:tw-items-center md:tw-justify-between">
+              <div>
+                <p className="tw-text-white tw-font-semibold">Charge to 13.5V+ whenever possible</p>
+                <p className="tw-text-white/70 tw-text-sm tw-max-w-xl">Hold 13.5V+ for at least 3 minutes, then set SOC to 100%. This re-syncs the BMS and balances batteries.</p>
+              </div>
+              <div className="tw-text-yellow-300 tw-text-sm tw-font-semibold tw-bg-yellow-900/30 tw-border tw-border-yellow-500/40 tw-rounded-md tw-px-3 tw-py-2">Required before continuing</div>
+            </div>
+            <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-3">
+              {SOC_OPTIONS.map((option) => {
+                const isLowBattery = option.recommendedSoc <= LOW_BATTERY_ALERT_THRESHOLD;
+                return (
+                  <label
+                    key={option.id}
+                    className={`tw-flex tw-gap-3 tw-items-start tw-p-4 tw-rounded-lg tw-border-2 tw-cursor-pointer tw-transition-all tw-duration-200 ${
+                      selectedSocOptionId === option.id
+                        ? isLowBattery
+                          ? 'tw-border-red-500 tw-bg-red-900/30'
+                          : 'tw-border-blue-500 tw-bg-blue-900/30'
+                        : 'tw-border-white/10 tw-bg-white/5 hover:tw-border-blue-500/50 hover:tw-bg-white/10'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="socOption"
+                      value={option.id}
+                      checked={selectedSocOptionId === option.id}
+                      onChange={() => {
+                        setSelectedSocOptionId(option.id);
+                        setSocUpdated(false);
+                        if (option.recommendedSoc <= LOW_BATTERY_ALERT_THRESHOLD) {
+                          sendLowBatteryAlert(option.label, option.recommendedSoc);
+                        }
+                      }}
+                      className="tw-mt-1 tw-w-5 tw-h-5 tw-rounded-full tw-border-2 tw-border-blue-500 tw-bg-slate-800 tw-cursor-pointer checked:tw-bg-blue-500 tw-transition-colors"
+                    />
+                    <div className="tw-flex-1">
+                      <p className="tw-text-white tw-font-semibold">{option.label}</p>
+                      <p className={`tw-text-sm tw-mt-1 ${isLowBattery ? 'tw-text-red-300' : 'tw-text-blue-300'}`}>
+                        Set SOC to {option.recommendedSoc}%
+                        {isLowBattery && ' ⚠️ Low Battery Alert'}
+                      </p>
+                      {option.note && <p className="tw-text-white/60 tw-text-xs tw-mt-1">{option.note}</p>}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <label className="tw-flex tw-items-start tw-gap-3 tw-bg-white/5 tw-border tw-border-white/10 tw-rounded-lg tw-p-4">
+              <input
+                type="checkbox"
+                checked={socUpdated}
+                disabled={!selectedSocOptionId}
+                onChange={(e) => setSocUpdated(e.target.checked)}
+                className="tw-mt-1 tw-w-5 tw-h-5 tw-rounded tw-border-2 tw-border-blue-500 tw-bg-slate-800 tw-cursor-pointer checked:tw-bg-blue-500 tw-transition-colors disabled:tw-opacity-50"
+              />
+              <div>
+                <p className="tw-text-white tw-font-semibold">I updated SOC in VRM/monitoring to match the selected voltage.</p>
+                <p className="tw-text-white/60 tw-text-sm tw-mt-1">This prevents false 100% readings, shutdowns, and AGS loops. Do not continue until SOC is corrected.</p>
+              </div>
+            </label>
+            {!selectedSocOptionId || !socUpdated ? (
+              <div className="tw-bg-yellow-900/20 tw-border tw-border-yellow-500/40 tw-rounded-lg tw-p-4 tw-text-center">
+                <p className="tw-text-yellow-300 tw-text-sm">
+                  ⚠️ Please select a voltage and confirm you've updated the SOC before continuing
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )
     },
     // Device Status Check
     {
       text: 'Device Status Checks',
       description: 'Make sure all devices are online before finishing deployment',
       answers: [
-        { label: 'Continue to Finish Deployment', nextSlide: 35 },
+        { label: 'Continue to Finish Deployment', nextSlide: 37 },
       ],
       customContent: <DeviceStatusCheck vin={vin} deviceStatus={deviceStatus} />
     },
@@ -617,15 +735,15 @@ export const DeploymentsApp = ({ initialSlide = 0, onFinish, vin = '', unitType 
         slides[31].answers[0].nextSlide = 32;
         // Slide 32 (Ensure red levers) -> 33 (Lower solar mast)
         slides[32].answers[0].nextSlide = 33;
-        // Add skip button to slide 33 (Lower solar mast) to go to next fast track question
-        skipTargets[33] = 'DEVICE_STATUS';
+        // Add skip button to slide 33 (Lower solar mast) to go back to battery SOC fast track check
+        skipTargets[33] = 'BATTERY_SOC';
       }
 
       Object.entries(skipTargets).forEach(([slideIndex, target]) => {
         const index = parseInt(slideIndex);
         if (slides[index]) {
           slides[index].skipButton = {
-            label: 'Skip to Fast Track',
+            label: 'Resume Checklist',
             show: true,
             target: target
           };

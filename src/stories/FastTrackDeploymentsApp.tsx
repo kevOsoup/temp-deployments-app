@@ -15,6 +15,10 @@ import {
     clearUnitData,
     type UnitType
 } from './unitStateManager';
+import FacingNorthImage from './assets/FacingNorth.png';
+import UnitStableImage from './assets/UnitStable.png';
+import CamerasOnMastImage from './assets/CamerasOnMast.png';
+import RedLeversImage from './assets/RedLevers.png';
 
 // Types for the flow
 type FlowStep =
@@ -25,6 +29,7 @@ type FlowStep =
     | 'GENERATOR_LP'
     | 'CAMERA_HOUSING'
     | 'POWER_BOX'
+    | 'BATTERY_SOC'
     | 'DEVICE_STATUS'
     | 'RAISE_MAST'
     | 'FINISH_UPLOAD'
@@ -32,7 +37,7 @@ type FlowStep =
     | 'FINISHED';
 
 // Use a linear scale for fast-track progress so it moves predictably between questions
-const FAST_TRACK_PROGRESS_TOTAL = 10; // include finish/upload as its own step
+const FAST_TRACK_PROGRESS_TOTAL = 11; // include finish/upload as its own step
 const FAST_TRACK_PROGRESS_SAVE_TOTAL = FAST_TRACK_PROGRESS_TOTAL - 1; // for stored progress math (100% when currentSlide === totalSlides)
 const FAST_TRACK_PROGRESS_INDEX: Record<FlowStep, number> = {
     'EXPERIENCE_CHECK': 0,
@@ -42,12 +47,23 @@ const FAST_TRACK_PROGRESS_INDEX: Record<FlowStep, number> = {
     'GENERATOR_LP': 2,
     'CAMERA_HOUSING': 3,
     'POWER_BOX': 4,
-    'DEVICE_STATUS': 6, // push closer to 100
-    'RAISE_MAST': 7,
-    'FINISH_UPLOAD': 8,
+    'RAISE_MAST': 5,
+    'BATTERY_SOC': 6,
+    'DEVICE_STATUS': 7,
+    'FINISH_UPLOAD': 9,
     'DETAILED_TRACK': 0,
-    'FINISHED': 9,
+    'FINISHED': 10,
 };
+
+const SOC_OPTIONS = [
+    { id: '13_5_plus', label: '13.5V or higher (after holding for 3+ minutes)', recommendedSoc: 100, note: 'Full SOC reset after balancing' },
+    { id: '13_4', label: '13.4V', recommendedSoc: 95, note: undefined },
+    { id: '13_2', label: '13.2V', recommendedSoc: 85, note: undefined },
+    { id: '13_0', label: '13.0V', recommendedSoc: 70, note: undefined },
+    { id: '12_8', label: '12.8V', recommendedSoc: 50, note: undefined },
+    { id: '12_6', label: '12.6V', recommendedSoc: 30, note: undefined },
+    { id: '12_5_or_lower', label: '12.5V or lower', recommendedSoc: 20, note: undefined },
+] as const;
 
 interface DeviceStatus {
     router: boolean;
@@ -70,6 +86,11 @@ export const FastTrackDeploymentsApp = () => {
     const [imageFileName, setImageFileName] = useState<string>('');
     const [lpFullAndInstalled, setLpFullAndInstalled] = useState(false);
     const [agsBreakerOn, setAgsBreakerOn] = useState(false);
+    const [selectedSocOptionId, setSelectedSocOptionId] = useState<string | null>(null);
+    const [socUpdated, setSocUpdated] = useState(false);
+    const [snackbar, setSnackbar] = useState<{ message: string; type: 'success' | 'warning' | 'info' } | null>(null);
+    const [snackbarTimeoutId, setSnackbarTimeoutId] = useState<number | null>(null);
+    const LOW_BATTERY_ALERT_THRESHOLD = 95; // Alert team if SOC set below this
     const { vinProgress, completionPercentage } = React.useMemo(() => {
         const versionKey = progressVersion;
         if (vin.length === 4 && versionKey >= 0) {
@@ -94,17 +115,35 @@ export const FastTrackDeploymentsApp = () => {
 
     // When a VIN has saved fast-track progress, seed the percent from storage
     React.useEffect(() => {
-        if (vinProgress && vinProgress.flowType === 'fast_track' && vinProgress.totalSlides === FAST_TRACK_PROGRESS_SAVE_TOTAL) {
+        if (vinProgress && vinProgress.flowType === 'fast_track' && vinProgress.totalSlides > 0) {
             const pct = Math.round((vinProgress.currentSlide / vinProgress.totalSlides) * 100);
-            setFastTrackPercent(pct);
+            setFastTrackPercent(Math.min(pct, 100));
         }
     }, [vinProgress]);
+
+    // Helper to show a temporary snackbar
+    const showSnackbar = (message: string, type: 'success' | 'warning' | 'info' = 'info', durationMs = 4000) => {
+        if (snackbarTimeoutId) {
+            clearTimeout(snackbarTimeoutId);
+        }
+        setSnackbar({ message, type });
+        const id = setTimeout(() => setSnackbar(null), durationMs);
+        setSnackbarTimeoutId(id);
+    };
+
+    // Stubbed alert sender — replace with real API call to notify RVMP
+    const sendLowBatteryAlert = (selectedLabel: string, socPercent: number) => {
+        console.log('RVMP LOW BATTERY ALERT', { vin, selectedLabel, socPercent, timestamp: new Date().toISOString() });
+        showSnackbar(`Alert sent: SOC set to ${socPercent}% (${selectedLabel}).`, 'warning');
+        // TODO: POST to your alerting endpoint here.
+    };
 
     const getStepFromProgressIndex = (index: number): FlowStep => {
         if (index >= FAST_TRACK_PROGRESS_INDEX.FINISHED) return 'FINISHED';
         if (index >= FAST_TRACK_PROGRESS_INDEX.FINISH_UPLOAD) return 'FINISH_UPLOAD';
-        if (index >= FAST_TRACK_PROGRESS_INDEX.RAISE_MAST) return 'RAISE_MAST';
         if (index >= FAST_TRACK_PROGRESS_INDEX.DEVICE_STATUS) return 'DEVICE_STATUS';
+        if (index >= FAST_TRACK_PROGRESS_INDEX.BATTERY_SOC) return 'BATTERY_SOC';
+        if (index >= FAST_TRACK_PROGRESS_INDEX.RAISE_MAST) return 'RAISE_MAST';
         if (index >= FAST_TRACK_PROGRESS_INDEX.POWER_BOX) return 'POWER_BOX';
         if (index >= FAST_TRACK_PROGRESS_INDEX.CAMERA_HOUSING) return 'CAMERA_HOUSING';
         if (index >= FAST_TRACK_PROGRESS_INDEX.GENERATOR_LP) return 'GENERATOR_LP';
@@ -130,6 +169,16 @@ export const FastTrackDeploymentsApp = () => {
         camera: true,
     });
 
+    // Alert when any device is offline in Device Status step
+    useEffect(() => {
+        if (currentStep === 'DEVICE_STATUS') {
+            const offline = Object.values(deviceStatus).some(status => !status);
+            if (offline) {
+                showSnackbar('One or more devices are offline. Check connections before finishing.', 'warning');
+            }
+        }
+    }, [currentStep, deviceStatus]);
+
     const [detailedTrackInitialSlide, setDetailedTrackInitialSlide] = useState(0);
 
     const handleBack = () => {
@@ -152,11 +201,14 @@ export const FastTrackDeploymentsApp = () => {
             case 'POWER_BOX':
                 setCurrentStep('CAMERA_HOUSING');
                 break;
-            case 'DEVICE_STATUS':
+            case 'RAISE_MAST':
                 setCurrentStep('POWER_BOX');
                 break;
-            case 'RAISE_MAST':
-                setCurrentStep('DEVICE_STATUS');
+            case 'BATTERY_SOC':
+                setCurrentStep('RAISE_MAST');
+                break;
+            case 'DEVICE_STATUS':
+                setCurrentStep('BATTERY_SOC');
                 break;
             case 'FINISH_UPLOAD':
                 setCurrentStep('RAISE_MAST');
@@ -173,7 +225,7 @@ export const FastTrackDeploymentsApp = () => {
 
     const handleVinSubmit = () => {
         if (vin.length !== 4) {
-            alert('Please enter the last 4 digits of the VIN to continue.');
+            showSnackbar('Please enter the last 4 digits of the VIN to continue.', 'warning');
             return;
         }
 
@@ -196,7 +248,8 @@ export const FastTrackDeploymentsApp = () => {
             setExperience(experiencePref);
             setFastTrackPreference(vin, experiencePref);
 
-            if (savedProgress.flowType === 'fast_track' && savedProgress.totalSlides === FAST_TRACK_PROGRESS_SAVE_TOTAL) {
+            const legacyFastTrackTotal = FAST_TRACK_PROGRESS_SAVE_TOTAL - 1; // backward compatibility with previous fast track flow
+            if (savedProgress.flowType === 'fast_track' && (savedProgress.totalSlides === FAST_TRACK_PROGRESS_SAVE_TOTAL || savedProgress.totalSlides === legacyFastTrackTotal)) {
                 const step = getStepFromProgressIndex(savedProgress.currentSlide);
                 setCurrentStep(step);
             } else if (savedProgress.flowType === 'detailed_track') {
@@ -235,7 +288,8 @@ export const FastTrackDeploymentsApp = () => {
                 case 'SUPPORT_LEGS': setCurrentStep('GENERATOR_LP'); break;
                 case 'GENERATOR_LP': setCurrentStep('CAMERA_HOUSING'); break;
                 case 'CAMERA_HOUSING': setCurrentStep('POWER_BOX'); break;
-                case 'POWER_BOX': setCurrentStep('DEVICE_STATUS'); break;
+                case 'POWER_BOX': setCurrentStep('RAISE_MAST'); break;
+                case 'BATTERY_SOC': setCurrentStep('DEVICE_STATUS'); break;
                 default: break;
             }
         } else {
@@ -257,6 +311,9 @@ export const FastTrackDeploymentsApp = () => {
                 case 'POWER_BOX':
                     slideIndex = 21; // Shows slides 21,22,23,24,25,26,27,28,29,30,31,32,33 - "Open the front left storage box..."
                     break;
+                case 'BATTERY_SOC':
+                    slideIndex = 21; // SOC correction lives in power/charging workflow
+                    break;
                 case 'DEVICE_STATUS':
                     slideIndex = 34; // "Device Status Checks"
                     break;
@@ -277,7 +334,7 @@ export const FastTrackDeploymentsApp = () => {
         console.log('Sending timestamp (UTC):', now.toISOString());
         console.log('Sending timestamp (Local):', now.toLocaleString());
         console.log('Saving deployment for VIN:', vin);
-        alert('Deployment Submitted!');
+        showSnackbar('Deployment finished and saved.', 'success');
         // Persist completion progress
         if (vin) {
             saveProgress(vin, FAST_TRACK_PROGRESS_SAVE_TOTAL, FAST_TRACK_PROGRESS_SAVE_TOTAL, 'fast_track');
@@ -368,23 +425,16 @@ export const FastTrackDeploymentsApp = () => {
                                 <Step text="Solar Panels & Direction" />
                                 <Step text="Are solar panels deployed and facing south?" />
 
-                                {/* Reference Images - All Solar Panel Related */}
-                                <div className="tw-w-full tw-max-w-4xl tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/solar-panel-breaker.png?v=1763588930"
-                                        alt="Solar panel breaker"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/charge-controllers1.png?v=1763589300"
-                                        alt="Charge controllers 1"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/charge-controllers2.png?v=1763589300"
-                                        alt="Charge controllers 2"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
+                                {/* Reference Image - Facing North */}
+                                <div className="tw-w-full tw-max-w-3xl tw-mx-auto tw-space-y-3">
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-4 tw-border tw-border-white/10">
+                                        <img
+                                            src={FacingNorthImage}
+                                            alt="Unit positioned facing north"
+                                            className="tw-w-full tw-h-auto tw-max-h-[400px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-sm tw-mt-3 tw-font-medium">Unit positioned facing north with solar panels facing south</p>
+                                    </div>
                                 </div>
                             </div>
                             <div className="tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-gap-4">
@@ -407,6 +457,18 @@ export const FastTrackDeploymentsApp = () => {
                             <div className="tw-flex tw-flex-col tw-items-center tw-gap-6">
                                 <Step text="Support Legs" />
                                 <Step text="Is the unit stable and safe?" />
+
+                                {/* Reference Image - Unit Stable */}
+                                <div className="tw-w-full tw-max-w-3xl tw-mx-auto tw-space-y-3">
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-4 tw-border tw-border-white/10">
+                                        <img
+                                            src={UnitStableImage}
+                                            alt="Unit stable and safe"
+                                            className="tw-w-full tw-h-auto tw-max-h-[400px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-sm tw-mt-3 tw-font-medium">Unit with support legs extended and stable</p>
+                                    </div>
+                                </div>
                             </div>
                             <div className="tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-gap-4">
                                 <Button label="Yes" onClick={() => handleFastTrackCheck(true)} minWidth />
@@ -451,29 +513,39 @@ export const FastTrackDeploymentsApp = () => {
                                     <ProgressIndicator percentage={fastTrackPercent} message="Deployment Progress" />
                                     <div className="tw-flex tw-flex-col tw-items-center tw-gap-6">
                                         <Step text="Generator & LP" />
+                                        <Step text="Is the generator functional, breaker left on, and LP installed with Mopekas/valves open?" />
 
                                         {/* Reference Images - All Generator & LP Related */}
-                                        <div className="tw-w-full tw-max-w-4xl tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
-                                            <img
-                                                src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/open-propane.png?v=1763578336"
-                                                alt="Open propane valve"
-                                                className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                            />
-                                            <img
-                                                src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/turn-on-generator.png?v=1763588481"
-                                                alt="Turn on generator"
-                                                className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                            />
-                                            <img
-                                                src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/turn-on-generator-breaker.png?v=1763588746"
-                                                alt="Turn on generator breaker"
-                                                className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                            />
+                                        <div className="tw-w-full tw-max-w-4xl tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-4">
+                                            <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                                <img
+                                                    src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/open-propane.png?v=1763578336"
+                                                    alt="Open propane valve"
+                                                    className="tw-w-full tw-h-auto tw-max-h-[250px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                                />
+                                                <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Open propane valve</p>
+                                            </div>
+                                            <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                                <img
+                                                    src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/turn-on-generator.png?v=1763588481"
+                                                    alt="Turn on generator"
+                                                    className="tw-w-full tw-h-auto tw-max-h-[250px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                                />
+                                                <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Turn on generator</p>
+                                            </div>
+                                            <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                                <img
+                                                    src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/turn-on-generator-breaker.png?v=1763588746"
+                                                    alt="Turn on generator breaker"
+                                                    className="tw-w-full tw-h-auto tw-max-h-[250px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                                />
+                                                <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Turn on generator breaker</p>
+                                            </div>
                                         </div>
 
                                         {/* Checklist Card */}
                                         <div className="tw-w-full tw-max-w-xl tw-bg-white/5 tw-border tw-border-white/10 tw-rounded-2xl tw-p-6 tw-shadow-xl tw-backdrop-blur-md">
-                                            <h3 className="tw-text-white tw-text-lg tw-font-bold tw-mb-6 tw-text-center">Pre-flight Checklist</h3>
+                                            <h3 className="tw-text-white tw-text-lg tw-font-bold tw-mb-6 tw-text-center">Checklist</h3>
                                             <div className="tw-space-y-4">
                                                 {/* LP Full Checkbox */}
                                                 <label className="tw-flex tw-items-start tw-gap-4 tw-p-4 tw-rounded-lg tw-border-2 tw-border-white/10 tw-bg-white/5 tw-cursor-pointer tw-transition-all tw-duration-300 hover:tw-border-blue-500/50 hover:tw-bg-white/10">
@@ -542,13 +614,24 @@ export const FastTrackDeploymentsApp = () => {
                                 <Step text="Camera Housing" />
                                 <Step text="Is the camera housing assembled and installed correctly?" />
 
-                                {/* Reference Image - Camera Housing Breakers Only */}
-                                <div className="tw-w-full tw-max-w-md">
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/camera-housing-breakers.png?v=1763578774"
-                                        alt="Camera housing breakers"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
+                                {/* Reference Images - Camera Housing */}
+                                <div className="tw-w-full tw-max-w-3xl tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/camera-housing-breakers.png?v=1763578774"
+                                            alt="Camera housing breakers"
+                                            className="tw-w-full tw-h-auto tw-max-h-[300px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-sm tw-mt-3 tw-font-medium">Camera housing breakers</p>
+                                    </div>
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src={CamerasOnMastImage}
+                                            alt="Cameras on mast"
+                                            className="tw-w-full tw-h-auto tw-max-h-[300px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-sm tw-mt-3 tw-font-medium">Cameras installed on mast</p>
+                                    </div>
                                 </div>
                             </div>
                             <div className="tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-gap-4">
@@ -573,37 +656,63 @@ export const FastTrackDeploymentsApp = () => {
                                 <Step text="Are all breakers and switches in the correct positions?" />
 
                                 {/* Reference Images */}
-                                <div className="tw-w-full tw-max-w-4xl tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/control-panel-box.png?v=1763578983"
-                                        alt="Control panel box"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/turn-on-inverter.png?v=1763585591"
-                                        alt="Turn on inverter"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/inverter-chr.png?v=1763585653"
-                                        alt="Inverter CHG position"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/power-box-breakers.png?v=1763585703"
-                                        alt="Power box breakers"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/main-power-disconnect.png?v=1763585830"
-                                        alt="Main power disconnect"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/turn-on-generator-breaker.png?v=1763588746"
-                                        alt="AGS breaker"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
+                                <div className="tw-w-full tw-max-w-4xl tw-grid tw-grid-cols-1 md:tw-grid-cols-2 lg:tw-grid-cols-3 tw-gap-4">
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/control-panel-box.png?v=1763578983"
+                                            alt="Control panel box"
+                                            className="tw-w-full tw-h-auto tw-max-h-[220px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Control panel box</p>
+                                    </div>
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/turn-on-inverter.png?v=1763585591"
+                                            alt="Turn on inverter"
+                                            className="tw-w-full tw-h-auto tw-max-h-[220px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Turn on inverter</p>
+                                    </div>
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/inverter-chr.png?v=1763585653"
+                                            alt="Inverter CHG position"
+                                            className="tw-w-full tw-h-auto tw-max-h-[220px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Set inverter to CHG</p>
+                                    </div>
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/main-power-disconnect.png?v=1763585830"
+                                            alt="Main power disconnect"
+                                            className="tw-w-full tw-h-auto tw-max-h-[220px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Main power disconnect</p>
+                                    </div>
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src={RedLeversImage}
+                                            alt="Red levers position"
+                                            className="tw-w-full tw-h-auto tw-max-h-[220px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Ensure red levers are positioned correctly</p>
+                                    </div>
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/power-box-breakers.png?v=1763585703"
+                                            alt="Power box breakers"
+                                            className="tw-w-full tw-h-auto tw-max-h-[220px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Power box breakers</p>
+                                    </div>
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/turn-on-generator-breaker.png?v=1763588746"
+                                            alt="AGS breaker"
+                                            className="tw-w-full tw-h-auto tw-max-h-[220px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-xs tw-mt-2 tw-font-medium">Turn on AGS breaker</p>
+                                    </div>
                                 </div>
                             </div>
                             <div className="tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-gap-4">
@@ -631,13 +740,18 @@ export const FastTrackDeploymentsApp = () => {
                                 </div>
                                 <div className="tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-gap-4 tw-mt-2">
                                     {allGreen ? (
-                                        <Button label="Continue to Raise the Mast" onClick={() => setCurrentStep('RAISE_MAST')} minWidth />
+                                        <Button label="Continue to Finish Deployment" onClick={() => setCurrentStep('FINISH_UPLOAD')} minWidth />
                                     ) : (
                                         <Button label="Go to Detailed Track" onClick={() => {
                                             setDetailedTrackInitialSlide(0);
                                             setCurrentStep('DETAILED_TRACK');
                                             setAllowFastTrackShortcuts(false);
                                         }} minWidth />
+                                    )}
+                                    {!allGreen && (
+                                        <div className="tw-text-yellow-300 tw-text-sm tw-text-center tw-max-w-lg">
+                                            Some devices appear offline. Please verify power, connections, and network before finishing.
+                                        </div>
                                     )}
                                 </div>
                                 <div className="tw-flex tw-justify-center tw-mt-2">
@@ -656,32 +770,137 @@ export const FastTrackDeploymentsApp = () => {
                             <ProgressIndicator percentage={fastTrackPercent} message="Deployment Progress" />
                             <div className="tw-flex tw-flex-col tw-items-center tw-gap-6">
                                 <Step text="Raise the camera housing mast to its maximum height" />
-                                <p className="tw-text-white tw-text-center tw-max-w-md">
+                                <p className="tw-text-white/90 tw-text-center tw-max-w-md">
                                     Use a hand crank or a drill (not an impact drill) rotating clockwise.
                                 </p>
 
                                 {/* Reference Images - Raising Mast */}
                                 <div className="tw-w-full tw-max-w-4xl tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/raise-mast-1.png?v=1763589791"
-                                        alt="Raise mast 1"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
-                                    <img
-                                        src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/raise-mast-2.png?v=1763589791"
-                                        alt="Raise mast 2"
-                                        className="tw-w-full tw-rounded-lg tw-shadow-lg tw-border tw-border-white/10"
-                                    />
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/raise-mast-1.png?v=1763589791"
+                                            alt="Raise mast step 1"
+                                            className="tw-w-full tw-h-auto tw-max-h-[300px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-sm tw-mt-3 tw-font-medium">Position drill on crank handle</p>
+                                    </div>
+                                    <div className="tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                        <img
+                                            src="https://cdn.shopify.com/s/files/1/0576/7941/3301/files/raise-mast-2.png?v=1763589791"
+                                            alt="Raise mast step 2"
+                                            className="tw-w-full tw-h-auto tw-max-h-[300px] tw-object-contain tw-rounded-lg tw-mx-auto"
+                                        />
+                                        <p className="tw-text-center tw-text-white/80 tw-text-sm tw-mt-3 tw-font-medium">Raise mast to maximum height</p>
+                                    </div>
                                 </div>
 
-                                <iframe
-                                    src="https://drive.google.com/file/d/15wJe3qy8-KGzaJIizvBlQ6afC8t5vr5V/preview"
-                                    title="Raise camera mast video"
-                                    className="tw-w-full tw-max-w-[560px] tw-aspect-video tw-border-0 tw-rounded-lg tw-shadow-lg"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
+                                {/* Video Reference */}
+                                <div className="tw-w-full tw-max-w-[560px] tw-bg-white/5 tw-rounded-xl tw-p-3 tw-border tw-border-white/10">
+                                    <iframe
+                                        src="https://drive.google.com/file/d/15wJe3qy8-KGzaJIizvBlQ6afC8t5vr5V/preview"
+                                        title="Raise camera mast video"
+                                        className="tw-w-full tw-aspect-video tw-border-0 tw-rounded-lg"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                    />
+                                    <p className="tw-text-center tw-text-white/80 tw-text-sm tw-mt-2 tw-font-medium">Video: Raising the mast</p>
+                                </div>
+
+                                <Button label="Continue to Battery SOC Check" onClick={() => setCurrentStep('BATTERY_SOC')} size="large" minWidth />
+                            </div>
+                        </>
+                    );
+                }
+                break;
+
+            case 'BATTERY_SOC':
+                {
+                    const selectedSocOption = SOC_OPTIONS.find((option) => option.id === selectedSocOptionId);
+                    const canContinue = Boolean(selectedSocOption && socUpdated);
+                    content = (
+                        <>
+                            <ProgressIndicator percentage={fastTrackPercent} message="Deployment Progress" />
+                            <div className="tw-flex tw-flex-col tw-items-center tw-gap-6">
+                                <Step text="Battery State of Charge Reset (Mandatory)" />
+                                <p className="tw-text-white/90 tw-text-center tw-max-w-3xl">
+                                    Update the SOC (State of Charge) to match measured battery voltage before moving on. Incorrect SOC causes controllers to shut down early, AGS to overrun, rapid LP loss, and units going offline overnight.
+                                </p>
+                                <p className="tw-text-green-300 tw-text-center tw-text-sm tw-max-w-2xl">
+                                    If SOC already reads 90–100% and voltage is 13.4V+ (held for 3+ minutes), it is acceptable to proceed.
+                                </p>
+
+                                <div className="tw-w-full tw-max-w-3xl tw-bg-white/5 tw-border tw-border-white/10 tw-rounded-2xl tw-p-6 tw-shadow-xl tw-backdrop-blur-md tw-space-y-4">
+                                    <div className="tw-flex tw-flex-col md:tw-flex-row tw-gap-3 tw-items-start md:tw-items-center md:tw-justify-between">
+                                        <div>
+                                            <p className="tw-text-white tw-font-semibold">Charge to 13.5V+ whenever possible</p>
+                                            <p className="tw-text-white/70 tw-text-sm tw-max-w-xl">Hold 13.5V+ for at least 3 minutes, then set SOC to 100%. This re-syncs the BMS and balances batteries.</p>
+                                        </div>
+                                        <div className="tw-text-yellow-300 tw-text-sm tw-font-semibold tw-bg-yellow-900/30 tw-border tw-border-yellow-500/40 tw-rounded-md tw-px-3 tw-py-2">Required before continuing</div>
+                                    </div>
+                                    <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-3">
+                                        {SOC_OPTIONS.map((option) => (
+                                            <label
+                                                key={option.id}
+                                                className={`tw-flex tw-gap-3 tw-items-start tw-p-4 tw-rounded-lg tw-border-2 tw-cursor-pointer tw-transition-all tw-duration-200 ${
+                                                    selectedSocOptionId === option.id ? 'tw-border-blue-500 tw-bg-blue-900/30' : 'tw-border-white/10 tw-bg-white/5 hover:tw-border-blue-500/50 hover:tw-bg-white/10'
+                                                }`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="socOption"
+                                                    value={option.id}
+                                                    checked={selectedSocOptionId === option.id}
+                                                    onChange={() => {
+                                                        setSelectedSocOptionId(option.id);
+                                                        setSocUpdated(false);
+                                                        if (option.recommendedSoc < LOW_BATTERY_ALERT_THRESHOLD) {
+                                                            sendLowBatteryAlert(option.label, option.recommendedSoc);
+                                                        }
+                                                    }}
+                                                    className="tw-mt-1 tw-w-5 tw-h-5 tw-rounded-full tw-border-2 tw-border-blue-500 tw-bg-slate-800 tw-cursor-pointer checked:tw-bg-blue-500 tw-transition-colors"
+                                                />
+                                                <div className="tw-flex-1">
+                                                    <p className="tw-text-white tw-font-semibold">{option.label}</p>
+                                                    <p className="tw-text-blue-300 tw-text-sm tw-mt-1">Set SOC to {option.recommendedSoc}%</p>
+                                                    {option.note && <p className="tw-text-white/60 tw-text-xs tw-mt-1">{option.note}</p>}
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <label className="tw-flex tw-items-start tw-gap-3 tw-bg-white/5 tw-border tw-border-white/10 tw-rounded-lg tw-p-4">
+                                        <input
+                                            type="checkbox"
+                                            checked={socUpdated}
+                                            disabled={!selectedSocOption}
+                                            onChange={(e) => setSocUpdated(e.target.checked)}
+                                            className="tw-mt-1 tw-w-5 tw-h-5 tw-rounded tw-border-2 tw-border-blue-500 tw-bg-slate-800 tw-cursor-pointer checked:tw-bg-blue-500 tw-transition-colors disabled:tw-opacity-50"
+                                        />
+                                        <div>
+                                            <p className="tw-text-white tw-font-semibold">I updated SOC in VRM/monitoring to match the selected voltage.</p>
+                                            <p className="tw-text-white/60 tw-text-sm tw-mt-1">This prevents false 100% readings, shutdowns, and AGS loops. Do not continue until SOC is corrected.</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="tw-flex tw-flex-col md:tw-flex-row tw-justify-center tw-items-center tw-gap-4 tw-mt-4">
+                                <Button label="Continue to Device Status" onClick={() => handleFastTrackCheck(true)} minWidth disabled={!canContinue} />
+                                <Button
+                                    label="Need detailed steps"
+                                    onClick={() => {
+                                        setDetailedTrackInitialSlide(21);
+                                        setCurrentStep('DETAILED_TRACK');
+                                        setAllowFastTrackShortcuts(true);
+                                    }}
+                                    minWidth
                                 />
-                                <Button label="Continue to Finish Deployment" onClick={() => setCurrentStep('FINISH_UPLOAD')} size="large" minWidth />
+                            </div>
+                            {!canContinue && (
+                                <div className="tw-mt-2 tw-text-yellow-300 tw-text-sm tw-text-center">
+                                    Select a voltage and confirm SOC update to continue.
+                                </div>
+                            )}
+                            <div className="tw-flex tw-justify-center tw-mt-2">
+                                <Button label="Back" onClick={handleBack} />
                             </div>
                         </>
                     );
@@ -768,7 +987,7 @@ export const FastTrackDeploymentsApp = () => {
                                 setAllowFastTrackShortcuts(true);
                             }}
                             onSkip={(target) => {
-                                console.log('Skipping to Fast Track step:', target);
+                                console.log('Resuming checklist at step:', target);
                                 setCurrentStep(target as FlowStep);
                                 setAllowFastTrackShortcuts(true);
                             }}
@@ -808,6 +1027,16 @@ export const FastTrackDeploymentsApp = () => {
             <div className="deployments-app tw-p-4 md:tw-p-8 tw-flex tw-justify-center">
                 {renderStepContent()}
             </div>
+            {snackbar && (
+                <div
+                    className={`tw-fixed tw-bottom-6 tw-left-1/2 tw-transform -tw-translate-x-1/2 tw-px-4 tw-py-3 tw-rounded-lg tw-shadow-lg tw-text-white tw-text-sm tw-backdrop-blur-md tw-border
+                    ${snackbar.type === 'success' ? 'tw-bg-green-600/90 tw-border-green-400/50' : ''}
+                    ${snackbar.type === 'warning' ? 'tw-bg-yellow-600/90 tw-border-yellow-400/50' : ''}
+                    ${snackbar.type === 'info' ? 'tw-bg-blue-600/90 tw-border-blue-400/50' : ''}`}
+                >
+                    {snackbar.message}
+                </div>
+            )}
         </div>
     );
 };
