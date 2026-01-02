@@ -1,4 +1,3 @@
-import React from 'react';
 import { TestButton } from './TestButton';
 
 type User = {

@@ -6,6 +6,7 @@ import { saveProgress } from './unitStateManager';
 export interface WizardAnswer {
   label: string;
   nextSlide: number;
+  disabled?: () => boolean;
 }
 
 export type MediaItem =
