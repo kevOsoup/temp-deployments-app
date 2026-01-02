@@ -744,7 +744,7 @@ export const DeploymentsApp = ({ initialSlide = 0, onFinish, vin = '', unitType 
         if (slides[index]) {
           slides[index].skipButton = {
             label: 'Resume Checklist',
-            show: true,
+            show: false,
             target: target
           };
         }

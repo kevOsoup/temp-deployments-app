@@ -6,7 +6,6 @@ import { saveProgress } from './unitStateManager';
 export interface WizardAnswer {
   label: string;
   nextSlide: number;
-  disabled?: () => boolean;
 }
 
 export type MediaItem =
@@ -103,6 +102,14 @@ export const Wizard = ({ slides, initialSlide = 0, onFinish, onSkip, vin, flowTy
       }
       return;
     }
+
+    // Auto-navigate to fast-track if this slide has a skipButton configured
+    const currentSlideConfig = slides[currentSlide];
+    if (currentSlideConfig?.skipButton?.target && onSkip) {
+      onSkip(currentSlideConfig.skipButton.target);
+      return;
+    }
+
     setDirection('forward');
     setIsAnimating(true);
     setHistory([...history, nextSlide]);
