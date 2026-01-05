@@ -6,6 +6,7 @@ import { saveProgress } from './unitStateManager';
 export interface WizardAnswer {
   label: string;
   nextSlide: number;
+  disabled?: boolean | (() => boolean);
 }
 
 export type MediaItem =
@@ -175,14 +176,18 @@ export const Wizard = ({ slides, initialSlide = 0, onFinish, onSkip, vin, flowTy
           : 'tw-translate-x-0 tw-opacity-100'
           }`}
       >
-        {slide.answers.map((answer, index) => (
-          <Button
-            key={index}
-            label={answer.label}
-            minWidth
-            onClick={() => handleAnswer(answer.nextSlide)}
-          />
-        ))}
+        {slide.answers.map((answer, index) => {
+          const isDisabled = typeof answer.disabled === 'function' ? answer.disabled() : answer.disabled;
+          return (
+            <Button
+              key={index}
+              label={answer.label}
+              minWidth
+              onClick={() => handleAnswer(answer.nextSlide)}
+              disabled={isDisabled}
+            />
+          );
+        })}
         {slide.skipButton?.show && onSkip && slide.skipButton.target && (
           <Button
             label={slide.skipButton.label}
